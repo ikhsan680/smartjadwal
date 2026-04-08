@@ -44,7 +44,7 @@
               <tr v-for="kelas in filteredKelas" :key="kelas.id">
                 <td class="px-3 py-3 fw-semibold text-dark">{{ kelas.nama }}</td>
                 <td class="px-3 py-3 text-muted">{{ kelas.jurusan }}</td>
-                <td class="px-3 py-3 text-muted">{{ kelas.wali_kelas || '-' }}</td>
+                <td class="px-3 py-3 text-muted">{{ kelas.wali_guru?.nama || kelas.wali_kelas || '-' }}</td>
                 <td class="px-3 py-3">
                   <div class="d-flex justify-content-center gap-2">
                     <button class="btn btn-sm btn-outline-primary" @click="openEditModal(kelas)" :disabled="loading" title="Edit kelas">
@@ -97,7 +97,7 @@
                 <tr v-for="(kelas, idx) in kelasForReport" :key="kelas.id">
                   <td class="text-center">{{ idx + 1 }}</td>
                   <td>{{ kelas.nama }}</td>
-                  <td>{{ kelas.wali_kelas || '-' }}</td>
+                  <td>{{ kelas.wali_guru?.nama || kelas.wali_kelas || '-' }}</td>
                 </tr>
               </tbody>
             </table>
@@ -171,13 +171,29 @@
               </div>
 
               <div class="mb-3">
-                <label for="waliKelas" class="form-label">Wali Kelas</label>
-                <input v-model="formData.wali_kelas" type="text" id="waliKelas" class="form-control" placeholder="Masukkan nama wali kelas" />
+                <label for="waliKelasGuru" class="form-label">Wali Kelas</label>
+                <select v-model="formData.wali_guru_id" id="waliKelasGuru" class="form-select">
+                  <option value="">-- Pilih Guru --</option>
+                  <option value="new">+ Tambah Guru Baru</option>
+                  <option v-for="guru in guruList" :key="guru.id" :value="guru.id">{{ guru.nama }}</option>
+                </select>
+              </div>
+
+              <div v-if="formData.wali_guru_id === 'new'" class="mb-3">
+                <label for="waliKelasGuruBaru" class="form-label">Nama Guru Baru</label>
+                <input
+                  v-model="formData.nama_wali_guru_baru"
+                  type="text"
+                  id="waliKelasGuruBaru"
+                  class="form-control"
+                  placeholder="Contoh: Ibu Sinta"
+                  required
+                />
               </div>
 
               <div class="d-flex gap-2 justify-content-end">
                 <button type="button" class="btn btn-secondary" @click="closeModal">Batal</button>
-                <button type="submit" class="btn btn-primary" :disabled="loading || !formData.tier || !selectedCode || !formData.jurusan || (needsClassNumber && !formData.nomor)">{{ formData.isEdit ? 'Update' : 'Simpan' }}</button>
+                <button type="submit" class="btn btn-primary" :disabled="loading || !formData.tier || !selectedCode || !formData.jurusan || (needsClassNumber && !formData.nomor) || (formData.wali_guru_id === 'new' && !formData.nama_wali_guru_baru.trim())">{{ formData.isEdit ? 'Update' : 'Simpan' }}</button>
               </div>
             </form>
           </div>
@@ -189,9 +205,10 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
-import { kelasService } from '../services/resourceService'
+import { kelasService, mapelService } from '../services/resourceService'
 
 const kelasList = ref([])
+const guruList = ref([])
 const showModal = ref(false)
 const loading = ref(false)
 const showFullscreen = ref(false)
@@ -205,6 +222,8 @@ const formData = ref({
   nomor: '',
   nama: '',
   jurusan: '',
+  wali_guru_id: '',
+  nama_wali_guru_baru: '',
   wali_kelas: '',
   isEdit: false,
   id: null
@@ -218,7 +237,7 @@ const filteredKelas = computed(() => {
   if (!keyword) return kelasList.value
 
   return kelasList.value.filter((kelas) => {
-    return [kelas.nama, kelas.jurusan, kelas.wali_kelas || '']
+    return [kelas.nama, kelas.jurusan, kelas.wali_guru?.nama || kelas.wali_kelas || '']
       .join(' ')
       .toLowerCase()
       .includes(keyword)
@@ -282,7 +301,7 @@ const generateNamaKelas = computed(() => {
 })
 
 onMounted(async () => {
-  await loadKelas()
+  await Promise.all([loadKelas(), loadGuru()])
 })
 
 const loadKelas = async () => {
@@ -306,6 +325,18 @@ const loadKelas = async () => {
   }
 }
 
+const loadGuru = async () => {
+  try {
+    const response = await mapelService.getGuru()
+    if (response.data.success) {
+      guruList.value = response.data.data
+    }
+  } catch (error) {
+    console.error('Error loading guru:', error)
+    alert('Gagal memuat data guru')
+  }
+}
+
 const openModal = () => {
   showModal.value = true
   formData.value = {
@@ -315,6 +346,8 @@ const openModal = () => {
     nomor: '',
     nama: '',
     jurusan: '',
+    wali_guru_id: '',
+    nama_wali_guru_baru: '',
     wali_kelas: '',
     isEdit: false,
     id: null
@@ -330,6 +363,8 @@ const closeModal = () => {
     nomor: '',
     nama: '',
     jurusan: '',
+    wali_guru_id: '',
+    nama_wali_guru_baru: '',
     wali_kelas: '',
     isEdit: false,
     id: null
@@ -355,6 +390,23 @@ const saveKelas = async () => {
 
   try {
     loading.value = true
+
+    let waliGuruId = null
+    if (formData.value.wali_guru_id === 'new') {
+      const namaGuruBaru = formData.value.nama_wali_guru_baru.trim()
+      if (!namaGuruBaru) {
+        alert('Nama guru baru untuk wali kelas harus diisi!')
+        return
+      }
+
+      const guruResponse = await mapelService.createGuru({ nama: namaGuruBaru })
+      if (guruResponse.data.success) {
+        waliGuruId = guruResponse.data.data.id
+        await loadGuru()
+      }
+    } else if (formData.value.wali_guru_id) {
+      waliGuruId = parseInt(formData.value.wali_guru_id)
+    }
     
     // Generate nama kelas automatically
     let namaKelas
@@ -378,7 +430,8 @@ const saveKelas = async () => {
     const data = {
       nama: namaKelas,
       jurusan: formData.value.jurusan,
-      wali_kelas: formData.value.wali_kelas || null
+      wali_guru_id: waliGuruId,
+      wali_kelas: null
     }
 
     if (formData.value.isEdit) {
@@ -423,6 +476,8 @@ const parseNamaKelas = (nama) => {
 
 const openEditModal = (kelas) => {
   const parsed = parseNamaKelas(kelas.nama)
+  const matchedGuru = guruList.value.find((guru) => guru.nama === kelas.wali_kelas)
+  const existingWaliGuruId = kelas.wali_guru_id || matchedGuru?.id || ''
 
   const hasOption = programOptions.value.includes(parsed.code)
   formData.value = {
@@ -432,6 +487,8 @@ const openEditModal = (kelas) => {
     nomor: parsed.nomor,
     nama: kelas.nama,
     jurusan: kelas.jurusan,
+    wali_guru_id: existingWaliGuruId,
+    nama_wali_guru_baru: '',
     wali_kelas: kelas.wali_kelas || '',
     isEdit: true,
     id: kelas.id

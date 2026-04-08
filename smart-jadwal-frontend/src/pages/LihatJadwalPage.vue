@@ -1329,82 +1329,61 @@ const getVerticalMergeKegiatanId = (hariName, slotIdx, tier, tierKelasIdx) => {
 }
 
 // ==================== Jam Column Merge for "Semua Hari" View ====================
-// Compute vertical merge for jam column based on kegiatan merge
-const computeJamMergeSemauHari = (hariName) => {
+const computeConsecutiveCrossTierMerge = (hariName) => {
   const slotsList = allTimeSlots.value
   if (!slotsList || slotsList.length === 0) return {}
-  
-  const tierKeys = getTierKeys.value || []
-  const jamMergeInfo = {} // key: slotIdx, value: { type: 'merge', rowspan } or { type: 'skip' }
-  
+
+  const mergeInfo = {}
   let i = 0
+
   while (i < slotsList.length) {
+    const currentSlot = slotsList[i]
+    if (!isCrossTierMerged(hariName, currentSlot.id)) {
+      i++
+      continue
+    }
+
+    const currentKegiatanId = getCrossTierMergeKegiatanId(hariName, currentSlot.id)
+    if (!currentKegiatanId) {
+      i++
+      continue
+    }
+
     let rowspan = 1
     let j = i + 1
-    let shouldMerge = false
-    
-    // Check if there's cross-tier merge or consistent kegiatan across tiers at this slot
-    const firstSlotKegiatans = {}
-    for (const tier of tierKeys) {
-      const kelasList = groupKelasByTier.value[tier] || []
-      if (kelasList.length > 0) {
-        const kelas = kelasList[0]
-        const schedule = getScheduleForAllKelas(slotsList[i].id, hariName, kelas.id)
-        if (schedule?.kegiatan_id) {
-          firstSlotKegiatans[tier] = schedule.kegiatan_id
-        }
+
+    while (j < slotsList.length) {
+      const nextSlot = slotsList[j]
+      if (!isCrossTierMerged(hariName, nextSlot.id)) {
+        break
       }
+
+      const nextKegiatanId = getCrossTierMergeKegiatanId(hariName, nextSlot.id)
+      if (nextKegiatanId !== currentKegiatanId) {
+        break
+      }
+
+      rowspan++
+      j++
     }
-    
-    // Check consecutive slots for same kegiatan pattern
-    if (Object.keys(firstSlotKegiatans).length > 0) {
-      while (j < slotsList.length) {
-        let allMatch = true
-        
-        for (const tier of tierKeys) {
-          const kelasList = groupKelasByTier.value[tier] || []
-          if (kelasList.length === 0) continue
-          
-          const kelas = kelasList[0]
-          const schedule = getScheduleForAllKelas(slotsList[j].id, hariName, kelas.id)
-          const nextKegiatanId = schedule?.kegiatan_id || null
-          
-          if (nextKegiatanId !== firstSlotKegiatans[tier]) {
-            allMatch = false
-            break
-          }
-        }
-        
-        if (allMatch && Object.keys(firstSlotKegiatans).length > 0) {
-          rowspan++
-          j++
-        } else {
-          break
-        }
-      }
-      
-      if (rowspan > 1) {
-        shouldMerge = true
-      }
-    }
-    
-    if (shouldMerge && rowspan > 1) {
-      jamMergeInfo[i] = {
-        type: 'merge',
-        rowspan: rowspan
-      }
-      
+
+    if (rowspan > 1) {
+      mergeInfo[i] = { type: 'merge', rowspan }
       for (let k = i + 1; k < i + rowspan; k++) {
-        jamMergeInfo[k] = { type: 'skip' }
+        mergeInfo[k] = { type: 'skip' }
       }
-      
       i += rowspan
     } else {
       i++
     }
   }
-  
-  return jamMergeInfo
+
+  return mergeInfo
+}
+
+// Compute vertical merge for jam column based on cross-tier kegiatan merge
+const computeJamMergeSemauHari = (hariName) => {
+  return computeConsecutiveCrossTierMerge(hariName)
 }
 
 const getJamMergeSemauHariCache = ref({})
@@ -1429,80 +1408,7 @@ const getJamRowspan = (hariName, slotIdx) => {
 // ==================== Kegiatan Merge for "Semua Hari" View ====================
 // Merge kegiatan yang sama pada slot berturut-turut di semua tier
 const computeKegiatanMergeSemauHari = (hariName) => {
-  const slotsList = allTimeSlots.value
-  if (!slotsList || slotsList.length === 0) return {}
-  
-  const tierKeys = getTierKeys.value || []
-  const kegiatanMergeInfo = {} // key: slotIdx, value: { type: 'merge', rowspan } or { type: 'skip' }
-  
-  let i = 0
-  while (i < slotsList.length) {
-    let rowspan = 1
-    let j = i + 1
-    let shouldMerge = false
-    
-    // Get kegiatan for first slot across all tiers
-    const firstSlotKegiatans = {}
-    for (const tier of tierKeys) {
-      const kelasList = groupKelasByTier.value[tier] || []
-      if (kelasList.length > 0) {
-        const kelas = kelasList[0]
-        const schedule = getScheduleForAllKelas(slotsList[i].id, hariName, kelas.id)
-        if (schedule?.kegiatan_id) {
-          firstSlotKegiatans[tier] = schedule.kegiatan_id
-        }
-      }
-    }
-    
-    // Check consecutive slots for same kegiatan pattern
-    if (Object.keys(firstSlotKegiatans).length > 0) {
-      while (j < slotsList.length) {
-        let allMatch = true
-        
-        for (const tier of tierKeys) {
-          const kelasList = groupKelasByTier.value[tier] || []
-          if (kelasList.length === 0) continue
-          
-          const kelas = kelasList[0]
-          const schedule = getScheduleForAllKelas(slotsList[j].id, hariName, kelas.id)
-          const nextKegiatanId = schedule?.kegiatan_id || null
-          
-          if (nextKegiatanId !== firstSlotKegiatans[tier]) {
-            allMatch = false
-            break
-          }
-        }
-        
-        if (allMatch && Object.keys(firstSlotKegiatans).length > 0) {
-          rowspan++
-          j++
-        } else {
-          break
-        }
-      }
-      
-      if (rowspan > 1) {
-        shouldMerge = true
-      }
-    }
-    
-    if (shouldMerge && rowspan > 1) {
-      kegiatanMergeInfo[i] = {
-        type: 'merge',
-        rowspan: rowspan
-      }
-      
-      for (let k = i + 1; k < i + rowspan; k++) {
-        kegiatanMergeInfo[k] = { type: 'skip' }
-      }
-      
-      i += rowspan
-    } else {
-      i++
-    }
-  }
-  
-  return kegiatanMergeInfo
+  return computeConsecutiveCrossTierMerge(hariName)
 }
 
 const getKegiatanMergeSemauHariCache = ref({})

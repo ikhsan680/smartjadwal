@@ -15,6 +15,7 @@ class Kelas extends Model
         'nama',
         'jurusan',
         'wali_kelas',
+        'wali_guru_id',
     ];
 
     /**
@@ -23,5 +24,13 @@ class Kelas extends Model
     public function jadwal()
     {
         return $this->hasMany(Jadwal::class, 'kelas_id');
+    }
+
+    /**
+     * Get the guru assigned as homeroom teacher.
+     */
+    public function waliGuru()
+    {
+        return $this->belongsTo(Guru::class, 'wali_guru_id');
     }
 }

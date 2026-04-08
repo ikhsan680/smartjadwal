@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Kelas;
+use App\Models\Guru;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
@@ -14,7 +15,7 @@ class KelasController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $kelas = Kelas::all();
+            $kelas = Kelas::with('waliGuru')->get();
             return response()->json([
                 'success' => true,
                 'data' => $kelas
@@ -37,9 +38,16 @@ class KelasController extends Controller
                 'nama' => 'required|string|max:255',
                 'jurusan' => 'required|string|max:255',
                 'wali_kelas' => 'nullable|string|max:255',
+                'wali_guru_id' => 'nullable|exists:guru,id',
             ]);
 
+            if (!empty($validated['wali_guru_id'])) {
+                $guruWali = Guru::find($validated['wali_guru_id']);
+                $validated['wali_kelas'] = $guruWali?->nama;
+            }
+
             $kelas = Kelas::create($validated);
+            $kelas->load('waliGuru');
 
             return response()->json([
                 'success' => true,
@@ -60,7 +68,7 @@ class KelasController extends Controller
     public function show($id): JsonResponse
     {
         try {
-            $kelas = Kelas::findOrFail($id);
+            $kelas = Kelas::with('waliGuru')->findOrFail($id);
             return response()->json([
                 'success' => true,
                 'data' => $kelas
@@ -85,9 +93,18 @@ class KelasController extends Controller
                 'nama' => 'required|string|max:255',
                 'jurusan' => 'required|string|max:255',
                 'wali_kelas' => 'nullable|string|max:255',
+                'wali_guru_id' => 'nullable|exists:guru,id',
             ]);
 
+            if (!empty($validated['wali_guru_id'])) {
+                $guruWali = Guru::find($validated['wali_guru_id']);
+                $validated['wali_kelas'] = $guruWali?->nama;
+            } elseif (array_key_exists('wali_guru_id', $validated) && empty($validated['wali_guru_id'])) {
+                $validated['wali_kelas'] = null;
+            }
+
             $kelas->update($validated);
+            $kelas->load('waliGuru');
 
             return response()->json([
                 'success' => true,

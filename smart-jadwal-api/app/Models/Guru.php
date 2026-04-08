@@ -23,4 +23,12 @@ class Guru extends Model
         return $this->belongsToMany(Mapel::class, 'guru_mapel', 'guru_id', 'mapel_id')
             ->orderByPivot('mapel_id');
     }
+
+    /**
+     * Get kelas where this guru is assigned as homeroom teacher.
+     */
+    public function kelasWali()
+    {
+        return $this->hasMany(Kelas::class, 'wali_guru_id');
+    }
 }

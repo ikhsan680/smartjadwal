@@ -251,7 +251,26 @@
             <button type="button" class="btn-close" @click="closeModal"></button>
           </div>
           <div class="modal-body">
-            <form @submit.prevent="saveMapelGuruLama">
+            <div class="d-flex gap-2 mb-3">
+              <button
+                type="button"
+                class="btn btn-sm"
+                :class="relationModalTab === 'single' ? 'btn-primary' : 'btn-outline-primary'"
+                @click="relationModalTab = 'single'"
+              >
+                Tambah Single
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm"
+                :class="relationModalTab === 'batch' ? 'btn-primary' : 'btn-outline-primary'"
+                @click="relationModalTab = 'batch'"
+              >
+                Batch 1 Guru
+              </button>
+            </div>
+
+            <form v-if="relationModalTab === 'single'" @submit.prevent="saveMapelGuruLama">
               <div class="mb-3">
                 <label for="mapel" class="form-label">Pilih Mapel</label>
                 <select v-model="formData.mapel_id" id="mapel" class="form-select" required>
@@ -283,6 +302,66 @@
               <div class="d-flex gap-2 justify-content-end">
                 <button type="button" class="btn btn-secondary" @click="closeModal">Batal</button>
                 <button type="submit" class="btn btn-primary" :disabled="loading">Simpan</button>
+              </div>
+            </form>
+
+            <form v-else @submit.prevent="saveBatchMapelGuru">
+              <div class="mb-3">
+                <label for="batchGuru" class="form-label">Pilih Guru (untuk semua mapel)</label>
+                <select v-model="batchFormData.guru_id" id="batchGuru" class="form-select" required>
+                  <option value="">-- Pilih Guru --</option>
+                  <option value="new">+ Buat Guru Baru</option>
+                  <option v-for="guru in guruOptions" :key="`batch-guru-${guru.id}`" :value="guru.id">{{ guru.nama }}</option>
+                </select>
+              </div>
+
+              <div v-if="batchFormData.guru_id === 'new'" class="mb-3">
+                <label for="batchNamaGuruBaru" class="form-label">Nama Guru Baru</label>
+                <input v-model="batchFormData.nama_guru_baru" type="text" id="batchNamaGuruBaru" class="form-control" placeholder="Contoh: Pak Adi" required />
+              </div>
+
+              <div class="batch-row-wrapper mb-3">
+                <div class="small text-muted mb-2">Input banyak mapel untuk satu guru.</div>
+                <div v-for="(row, rowIdx) in batchFormData.rows" :key="`batch-row-${rowIdx}`" class="batch-row-item">
+                  <div class="row g-2 align-items-end">
+                    <div class="col-7">
+                      <label class="form-label">Mapel {{ rowIdx + 1 }}</label>
+                      <select v-model="row.mapel_id" class="form-select" required>
+                        <option value="">-- Pilih Mapel --</option>
+                        <option value="new">+ Buat Mapel Baru</option>
+                        <option v-for="mapel in mapelOptions" :key="`batch-mapel-${rowIdx}-${mapel.id}`" :value="mapel.id">{{ mapel.nama }}</option>
+                      </select>
+                    </div>
+                    <div class="col-3">
+                      <label class="form-label">Preview Kode</label>
+                      <div class="form-control bg-light text-center fw-semibold">{{ getBatchPreviewCode(rowIdx) }}</div>
+                    </div>
+                    <div class="col-2 d-grid">
+                      <button
+                        type="button"
+                        class="btn btn-outline-danger"
+                        @click="removeBatchRow(rowIdx)"
+                        :disabled="batchFormData.rows.length === 1"
+                        title="Hapus baris"
+                      >
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <div v-if="row.mapel_id === 'new'" class="mt-2">
+                    <input v-model="row.nama_mapel_baru" type="text" class="form-control" placeholder="Nama mapel baru" required />
+                  </div>
+                </div>
+              </div>
+
+              <div class="d-flex justify-content-between gap-2">
+                <button type="button" class="btn btn-outline-primary" @click="addBatchRow">
+                  <i class="bi bi-plus-lg me-1"></i>Tambah Baris
+                </button>
+                <div class="d-flex gap-2">
+                  <button type="button" class="btn btn-secondary" @click="closeModal">Batal</button>
+                  <button type="submit" class="btn btn-primary" :disabled="loading">Simpan Batch</button>
+                </div>
               </div>
             </form>
           </div>
@@ -457,6 +536,13 @@ const formData = ref({
   guru_id: '',
   nama_mapel_baru: '',
   nama_guru_baru: ''
+})
+
+const relationModalTab = ref('single')
+const batchFormData = ref({
+  guru_id: '',
+  nama_guru_baru: '',
+  rows: [{ mapel_id: '', nama_mapel_baru: '' }]
 })
 
 const editData = ref({
@@ -752,11 +838,17 @@ const loadGuru = async () => {
 const openModalMapel = () => {
   showModal.value = true
   modalType.value = 'mapel'
+  relationModalTab.value = 'single'
   formData.value = {
     mapel_id: '',
     guru_id: '',
     nama_mapel_baru: '',
     nama_guru_baru: ''
+  }
+  batchFormData.value = {
+    guru_id: '',
+    nama_guru_baru: '',
+    rows: [{ mapel_id: '', nama_mapel_baru: '' }]
   }
 }
 
@@ -781,11 +873,17 @@ const openModalEdit = () => {
 const closeModal = () => {
   showModal.value = false
   modalType.value = null
+  relationModalTab.value = 'single'
   formData.value = {
     mapel_id: '',
     guru_id: '',
     nama_mapel_baru: '',
     nama_guru_baru: ''
+  }
+  batchFormData.value = {
+    guru_id: '',
+    nama_guru_baru: '',
+    rows: [{ mapel_id: '', nama_mapel_baru: '' }]
   }
   editData.value = {
     relation_key: '',
@@ -817,6 +915,149 @@ const closeModal = () => {
     guru_name: {},
     original_mapel_name: {},
     original_guru_name: {}
+  }
+}
+
+const addBatchRow = () => {
+  batchFormData.value.rows.push({ mapel_id: '', nama_mapel_baru: '' })
+}
+
+const removeBatchRow = (idx) => {
+  if (batchFormData.value.rows.length === 1) return
+  batchFormData.value.rows.splice(idx, 1)
+}
+
+const getBaseCodeForGuru = (guruId) => {
+  const parsedGuruId = Number(guruId)
+  if (parsedGuruId && guruCodeOrder.value.includes(parsedGuruId)) {
+    return guruCodeOrder.value.indexOf(parsedGuruId) + 1
+  }
+  return guruCodeOrder.value.length + 1
+}
+
+const getBatchPreviewCode = (rowIdx) => {
+  const rows = batchFormData.value.rows
+  const guruId = batchFormData.value.guru_id
+  if (!rows[rowIdx]?.mapel_id || !guruId) return '-'
+
+  const parsedGuruId = Number(guruId)
+  const isExistingGuru = Number.isInteger(parsedGuruId) && parsedGuruId > 0
+  const existingCount = isExistingGuru
+    ? baseDisplayedMapel.value.filter((item) => item.guru.id === parsedGuruId).length
+    : 0
+  const totalForGuru = existingCount + rows.length
+  const baseCode = getBaseCodeForGuru(guruId)
+
+  if (totalForGuru <= 1) return String(baseCode)
+
+  const letter = String.fromCharCode(65 + existingCount + rowIdx)
+  return `${baseCode}${letter}`
+}
+
+const resolveBatchGuruId = async () => {
+  const selectedGuruId = batchFormData.value.guru_id
+  if (!selectedGuruId) {
+    alert('Pilih guru untuk batch!')
+    return null
+  }
+
+  if (selectedGuruId === 'new') {
+    const namaGuruBaru = batchFormData.value.nama_guru_baru?.trim()
+    if (!namaGuruBaru) {
+      alert('Nama guru baru harus diisi!')
+      return null
+    }
+
+    const response = await mapelService.createGuru({ nama: namaGuruBaru })
+    if (!response.data.success) {
+      throw new Error(response.data.message || 'Gagal membuat guru baru')
+    }
+
+    await loadGuru()
+    return response.data.data.id
+  }
+
+  return Number(selectedGuruId)
+}
+
+const resolveBatchMapelId = async (row) => {
+  if (!row.mapel_id) {
+    throw new Error('Semua baris mapel harus diisi!')
+  }
+
+  if (row.mapel_id === 'new') {
+    const namaMapelBaru = row.nama_mapel_baru?.trim()
+    if (!namaMapelBaru) {
+      throw new Error('Nama mapel baru pada batch harus diisi!')
+    }
+
+    const response = await mapelService.create({ nama: namaMapelBaru })
+    if (!response.data.success) {
+      throw new Error(response.data.message || 'Gagal membuat mapel baru')
+    }
+
+    await loadMapel()
+    return response.data.data.id
+  }
+
+  return Number(row.mapel_id)
+}
+
+const saveBatchMapelGuru = async () => {
+  const rows = batchFormData.value.rows
+
+  if (!rows.length) {
+    alert('Tambah minimal 1 baris mapel!')
+    return
+  }
+
+  try {
+    loading.value = true
+
+    const guruId = await resolveBatchGuruId()
+    if (!guruId) return
+
+    const attachedInThisBatch = new Set()
+    let successCount = 0
+    let skippedCount = 0
+
+    for (const row of rows) {
+      const mapelId = await resolveBatchMapelId(row)
+      const relationKey = `${mapelId}-${guruId}`
+
+      if (attachedInThisBatch.has(relationKey)) {
+        skippedCount++
+        continue
+      }
+
+      const alreadyExists = baseDisplayedMapel.value.some((item) => item.mapel.id === mapelId && item.guru.id === guruId)
+      if (alreadyExists) {
+        skippedCount++
+        continue
+      }
+
+      const response = await mapelService.attachGuru(mapelId, guruId)
+      if (response.data.success) {
+        attachedInThisBatch.add(relationKey)
+        successCount++
+      }
+    }
+
+    await Promise.all([loadMapel(), loadGuru()])
+
+    if (successCount === 0) {
+      alert('Tidak ada data baru yang disimpan. Kemungkinan relasi sudah ada semua.')
+      return
+    }
+
+    const skippedInfo = skippedCount > 0 ? ` (${skippedCount} baris dilewati karena duplikat)` : ''
+    alert(`Berhasil menambahkan ${successCount} relasi mapel-guru${skippedInfo}`)
+    closeModal()
+  } catch (error) {
+    console.error('Error saving batch mapel-guru:', error)
+    alert('Gagal menyimpan batch: ' + (error.response?.data?.message || error.message))
+  } finally {
+    loading.value = false
   }
 }
 

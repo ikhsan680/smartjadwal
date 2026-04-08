@@ -65,7 +65,7 @@
 
     <div class="text-center mt-4">
       <a href="#" @click.prevent="goToStudentPortal" class="text-decoration-none text-primary">
-        Student Portal →
+        Daashbord Siswa →
       </a>
     </div>
 
