@@ -546,13 +546,20 @@ const timeToMinutes = (timeStr) => {
   return hours * 60 + minutes
 }
 
+const normalizeId = (value) => {
+  if (value === null || value === undefined || value === '') return null
+  const numericValue = Number(value)
+  return Number.isNaN(numericValue) ? String(value) : numericValue
+}
+
 const getScheduleForAllKelas = (slotId, hariName, selectedKelasId) => {
   const [jam_mulai] = slotId.split('-')
   const slotStart = timeToMinutes(jam_mulai)
+  const normalizedSelectedKelasId = normalizeId(selectedKelasId)
 
   return allKelasJadwalList.value.find(
     (j) =>
-      j.kelas_id === selectedKelasId &&
+      normalizeId(j.kelas_id) === normalizedSelectedKelasId &&
       j.hari === hariName &&
       timeToMinutes(j.jam_mulai) <= slotStart &&
       timeToMinutes(j.jam_selesai) > slotStart
@@ -560,7 +567,8 @@ const getScheduleForAllKelas = (slotId, hariName, selectedKelasId) => {
 }
 
 const getMapelName = (mapelId) => {
-  const mapel = mapelList.value.find((m) => m.id === mapelId)
+  const normalizedMapelId = normalizeId(mapelId)
+  const mapel = mapelList.value.find((m) => normalizeId(m.id) === normalizedMapelId)
   return mapel ? mapel.nama : ''
 }
 
@@ -571,7 +579,8 @@ const getMapelDisplayName = (mapelId) => {
 
 const getKegiatanName = (kegiatanId) => {
   if (!kegiatanId) return ''
-  const kegiatan = kegiatanList.value.find((k) => k.id === kegiatanId)
+  const normalizedKegiatanId = normalizeId(kegiatanId)
+  const kegiatan = kegiatanList.value.find((k) => normalizeId(k.id) === normalizedKegiatanId)
   return kegiatan ? kegiatan.nama : ''
 }
 
@@ -605,9 +614,10 @@ const formatKegiatanLines = (name) => {
 
 const getGuruName = (guruId) => {
   if (!guruId) return ''
+  const normalizedGuruId = normalizeId(guruId)
   for (const mapel of mapelList.value) {
     if (mapel.guru && Array.isArray(mapel.guru)) {
-      const guru = mapel.guru.find((g) => g.id === guruId)
+      const guru = mapel.guru.find((g) => normalizeId(g.id) === normalizedGuruId)
       if (guru) return guru.nama
     }
   }

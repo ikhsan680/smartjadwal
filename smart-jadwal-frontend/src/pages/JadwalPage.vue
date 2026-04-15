@@ -105,7 +105,7 @@
 
                 <div class="alert alert-info alert-sm mb-3">
                   <small>
-                    Kelas aktif: <strong>{{ kelasOptions.find(k => k.id === kelasAktif)?.nama || '-' }}</strong>. 
+                    Kelas aktif: <strong>{{ activeKelasName }}</strong>. 
                     Anda bisa campur <strong>Pelajaran</strong> dan <strong>Kegiatan</strong> dalam satu batch.
                   </small>
                 </div>
@@ -342,6 +342,17 @@ const batchRows = ref([makeBatchRow()])
 
 const hari = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat']
 
+const normalizeId = (value) => {
+  if (value === null || value === undefined || value === '') return null
+  const numericValue = Number(value)
+  return Number.isNaN(numericValue) ? String(value) : numericValue
+}
+
+const activeKelasName = computed(() => {
+  const normalizedKelasAktif = normalizeId(kelasAktif.value)
+  return kelasOptions.value.find((k) => normalizeId(k.id) === normalizedKelasAktif)?.nama || '-'
+})
+
 // Computed property untuk mapel dengan kode guru
 const mapelWithKode = computed(() => {
   const relationList = []
@@ -521,17 +532,20 @@ const getJadwalByDay = (hariName) => {
 }
 
 const getMapelName = (mapelId) => {
-  const mapel = mapelList.value.find(m => m.id === mapelId)
+  const normalizedMapelId = normalizeId(mapelId)
+  const mapel = mapelList.value.find(m => normalizeId(m.id) === normalizedMapelId)
   return mapel ? mapel.nama : ''
 }
 
 const getMapelGuru = (mapelId, guruId = null) => {
-  const mapel = mapelList.value.find(m => m.id === mapelId)
+  const normalizedMapelId = normalizeId(mapelId)
+  const normalizedGuruId = normalizeId(guruId)
+  const mapel = mapelList.value.find(m => normalizeId(m.id) === normalizedMapelId)
   if (!mapel || !mapel.guru) return '-'
   
   // Jika ada guru_id spesifik, cari guru tersebut
-  if (guruId && Array.isArray(mapel.guru)) {
-    const guru = mapel.guru.find(g => g.id === guruId)
+  if (normalizedGuruId && Array.isArray(mapel.guru)) {
+    const guru = mapel.guru.find(g => normalizeId(g.id) === normalizedGuruId)
     return guru ? guru.nama : '-'
   }
   
@@ -545,7 +559,8 @@ const getMapelGuru = (mapelId, guruId = null) => {
 }
 
 const getKegiatanName = (kegiatanId) => {
-  const kegiatan = kegiatanList.value.find(k => k.id === kegiatanId)
+  const normalizedKegiatanId = normalizeId(kegiatanId)
+  const kegiatan = kegiatanList.value.find(k => normalizeId(k.id) === normalizedKegiatanId)
   return kegiatan ? kegiatan.nama : ''
 }
 

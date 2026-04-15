@@ -819,12 +819,19 @@ const timeToMinutes = (timeStr) => {
   return hours * 60 + minutes
 }
 
+const normalizeId = (value) => {
+  if (value === null || value === undefined || value === '') return null
+  const numericValue = Number(value)
+  return Number.isNaN(numericValue) ? String(value) : numericValue
+}
+
 const getScheduleForAllKelas = (slotId, hari, kelasId) => {
   const [jam_mulai, jam_selesai] = slotId.split('-')
   const slotStart = timeToMinutes(jam_mulai)
+  const normalizedKelasId = normalizeId(kelasId)
   
   const schedule = allKelasJadwalList.value.find(j => 
-    j.kelas_id === kelasId &&
+    normalizeId(j.kelas_id) === normalizedKelasId &&
     j.hari === hari && 
     timeToMinutes(j.jam_mulai) <= slotStart && 
     timeToMinutes(j.jam_selesai) > slotStart
@@ -833,7 +840,8 @@ const getScheduleForAllKelas = (slotId, hari, kelasId) => {
 }
 
 const getMapelName = (mapelId) => {
-  const mapel = mapelList.value.find(m => m.id === mapelId)
+  const normalizedMapelId = normalizeId(mapelId)
+  const mapel = mapelList.value.find(m => normalizeId(m.id) === normalizedMapelId)
   return mapel ? mapel.nama : ''
 }
                                 
@@ -843,12 +851,14 @@ const getMapelDisplayName = (mapelId) => {
 }
 
 const getMapelGuru = (mapelId, guruId = null) => {
-  const mapel = mapelList.value.find(m => m.id === mapelId)
+  const normalizedMapelId = normalizeId(mapelId)
+  const normalizedGuruId = normalizeId(guruId)
+  const mapel = mapelList.value.find(m => normalizeId(m.id) === normalizedMapelId)
   if (!mapel || !mapel.guru) return '-'
   
   // Jika ada guru_id spesifik, cari guru tersebut
-  if (guruId && Array.isArray(mapel.guru)) {
-    const guru = mapel.guru.find(g => g.id === guruId)
+  if (normalizedGuruId && Array.isArray(mapel.guru)) {
+    const guru = mapel.guru.find(g => normalizeId(g.id) === normalizedGuruId)
     return guru ? guru.nama : '-'
   }
   
@@ -954,7 +964,8 @@ const getGuruKode = (jadwal) => {
 
 const getKegiatanName = (kegiatanId) => {
   if (!kegiatanId) return ''
-  const kegiatan = kegiatanList.value.find(k => k.id === kegiatanId)
+  const normalizedKegiatanId = normalizeId(kegiatanId)
+  const kegiatan = kegiatanList.value.find(k => normalizeId(k.id) === normalizedKegiatanId)
   return kegiatan ? kegiatan.nama : ''
 }
 
@@ -965,10 +976,11 @@ const getKegiatanDisplayName = (kegiatanId) => {
 
 const getGuruName = (guruId) => {
   if (!guruId) return ''
+  const normalizedGuruId = normalizeId(guruId)
   // Cari guru dari semua mapel
   for (const mapel of mapelList.value) {
     if (mapel.guru && Array.isArray(mapel.guru)) {
-      const guru = mapel.guru.find(g => g.id === guruId)
+      const guru = mapel.guru.find(g => normalizeId(g.id) === normalizedGuruId)
       if (guru) return guru.nama
     }
   }
