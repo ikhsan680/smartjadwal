@@ -174,8 +174,9 @@
                     {{ slot.jam_mulai }} - {{ slot.jam_selesai }}
                   </td>
 
-                  <template v-if="isCrossTierMerged(hariName, slot.id) && !shouldSkipKegiatanSlot(hariName, slotIndex)">
+                  <template v-if="isCrossTierMerged(hariName, slot.id)">
                     <td
+                      v-if="!shouldSkipKegiatanSlot(hariName, slotIndex)"
                       :colspan="getCrossTierMergeColspan(hariName, slot.id)"
                       :rowspan="getKegiatanRowspan(hariName, slotIndex)"
                       class="text-center fw-semibold"
@@ -392,8 +393,9 @@
                           {{ slot.jam_mulai }} - {{ slot.jam_selesai }}
                         </td>
 
-                        <template v-if="isCrossTierMerged(hariName, slot.id) && !shouldSkipKegiatanSlot(hariName, slotIndex)">
+                        <template v-if="isCrossTierMerged(hariName, slot.id)">
                           <td
+                            v-if="!shouldSkipKegiatanSlot(hariName, slotIndex)"
                             :colspan="getCrossTierMergeColspan(hariName, slot.id)"
                             :rowspan="getKegiatanRowspan(hariName, slotIndex)"
                             class="text-center fw-semibold"
@@ -878,6 +880,26 @@ const computeVerticalKegiatanMerge = (hariName, tier) => {
 
     for (let slotIdx = 0; slotIdx < slotsList.length; slotIdx++) {
       const slot = slotsList[slotIdx]
+
+      // Slot cross-tier tidak boleh ikut chain merge vertikal per-kelas,
+      // agar tidak muncul sel "skip" tanpa sel awal yang dirender.
+      if (isCrossTierMerged(hariName, slot.id)) {
+        if (currentKegiatanId && mergeStart !== null) {
+          const rowspan = slotIdx - mergeStart
+          if (rowspan > 1) {
+            const key = `${tierKelasIdx}-${mergeStart}`
+            mergeInfo[key] = { rowspan, kegiatanId: currentKegiatanId, startSlotIdx: mergeStart }
+            for (let j = mergeStart + 1; j < slotIdx; j++) {
+              mergeInfo[`${tierKelasIdx}-${j}-skipped`] = true
+            }
+          }
+        }
+
+        currentKegiatanId = null
+        mergeStart = null
+        continue
+      }
+
       const schedule = getScheduleForAllKelas(slot.id, hariName, kelas.id)
       const slotKegiatanId = schedule?.kegiatan_id || null
 
